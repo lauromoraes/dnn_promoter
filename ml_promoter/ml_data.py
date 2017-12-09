@@ -75,6 +75,16 @@ class BaseData(object):
         self.sample_size = posdata.shape[1]
         self.set_XY(negdata, posdata)
 
+    def set_kmers_encoder(self):
+        from itertools import product
+        from numpy import array
+        from sklearn.preprocessing import LabelEncoder
+        nucs = ['G','A','C','T']
+        tups = list(product(nucs, repeat=self.k))
+        data = array([''.join(x) for x in tups])
+        self.label_encoder = LabelEncoder()
+        self.label_encoder.fit(data)
+
 class SequenceProteinData(BaseData):
     STANDARD_GENETIC_CODE   =   {
         'TTT':0,    'TTC':0,    'TCT':10,    'TCC':10,
@@ -117,16 +127,6 @@ class SequenceNucsData(BaseData):
         self.n_samples_neg = negdata.shape[0]
         self.sample_size = posdata.shape[1]
         self.set_XY(negdata, posdata)
-        
-    def set_kmers_encoder(self):
-        from itertools import product
-        from numpy import array
-        from sklearn.preprocessing import LabelEncoder
-        nucs = ['A','T','C','G']
-        tups = list(product(nucs, repeat=self.k))
-        data = array([''.join(x) for x in tups])
-        self.label_encoder = LabelEncoder()
-        self.label_encoder.fit(data)
     
     def encode_sequences(self, seqs):
         from numpy import vstack
@@ -146,20 +146,48 @@ class SequenceSimpleData(BaseData):
     
     def enconde_seq(self, seq):
         return [0 if x=='A' or x=='T' else 1 for x in seq]
-        
-    def set_kmers_encoder(self):
-        from itertools import product
-        from numpy import array
-        from sklearn.preprocessing import LabelEncoder
-        nucs = ['A','T','C','G']
-        tups = list(product(nucs, repeat=self.k))
-        data = array([''.join(x) for x in tups])
-        self.label_encoder = LabelEncoder()
-        self.label_encoder.fit(data)
     
     def encode_sequences(self, seqs):
         from numpy import vstack
         return vstack([self.enconde_seq(seq) for seq in seqs])
+
+class SequenceDinucProperties(BaseData):
+    
+    def __init__(self, npath, ppath):
+        import numpy as np
+        super(SequenceDinucProperties, self).__init__(npath, ppath)
+        self.k = 2
+        self.set_kmers_encoder()
+        # Setup tables for convert nucleotides to 2d properties matrix - multichannel signals
+        self.convtable2 = np.loadtxt('dinuc_values', delimiter=',', dtype=np.float32)
+        
+        posdata = self.enconde_positives()
+        negdata = self.enconde_negatives()
+        print posdata.shape
+        print negdata.shape
+        assert negdata.shape[1]==posdata.shape[1]
+        self.n_samples_pos = posdata.shape[0]
+        self.n_samples_neg = negdata.shape[0]
+        self.sample_size = posdata.shape[1]
+        self.set_XY(negdata, posdata)
+            
+        
+    def encode_seq(self, seq):
+        import numpy as np
+                
+        convProp = lambda x, prop : np.array([ self.convtable2[prop, dinuc] for dinuc in x ])
+        
+        return np.vstack([ convProp(seq, i) for i in range(38) ]).reshape(38,len(seq),1)
+        
+#        return convertedseq.reshape(1, 38, len(seq))
+        
+        
+
+    def encode_sequences(self, seqs):
+        from numpy import vstack, array
+        mat = vstack([self.label_encoder.transform(self.get_kmers(seq, k=self.k)) for seq in seqs])
+        return array([ self.encode_seq(seq) for seq in mat ])
+
 
 class SimpleHistData(BaseData):
     
@@ -200,3 +228,23 @@ class DinucAutoCovarData(BaseData):
         from numpy import vstack
         dac = DAC(self.k)
         return vstack(dac.make_dac_vec(seqs, all_property=True))
+
+class DinucCrossCovarData(BaseData):
+    
+    def __init__(self, npath, ppath, k=1, upto=False):
+        super(DinucCrossCovarData, self).__init__(npath, ppath)
+        self.k = k
+        self.upto = upto
+        posdata = self.enconde_positives()
+        negdata = self.enconde_negatives()
+        assert negdata.shape[1]==posdata.shape[1]
+        self.n_samples_pos = posdata.shape[0]
+        self.n_samples_neg = negdata.shape[0]
+        self.sample_size = posdata.shape[1]
+        self.set_XY(negdata, posdata)
+    
+    def encode_sequences(self, seqs):
+        from repDNA.ac import DCC
+        from numpy import vstack
+        dcc = DCC(self.k)
+        return vstack(dcc.make_dcc_vec(seqs, all_property=True))

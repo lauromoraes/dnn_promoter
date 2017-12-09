@@ -60,23 +60,23 @@ def get_mergerd_model(X1, X2, X3):
     from keras.layers.embeddings import Embedding
     
     branch1 = Sequential()
-    branch1.add(Dense(X1.shape[1], input_shape=(X1.shape[1], ), init='normal', activation='relu'))
+    branch1.add(Dense(X1.shape[1], input_shape=(X1.shape[1], ), init='uniform', activation='relu'))
     branch1.add(Dense(1, init='normal', activation='sigmoid'))
     #branch1.add(BatchNormalization())
     
     branch2 = Sequential()
-    branch2.add(Embedding(X2.shape[0], 64, input_length=X2.shape[1]))
-    branch2.add(Conv1D(filters=100, kernel_size=9, padding='same', activation='relu', strides=1))
-    branch2.add(MaxPooling1D(pool_size=3, strides=3))
-    branch2.add(LSTM(64, dropout=0.2, recurrent_dropout=0.1, return_sequences=True))
-    branch2.add(LSTM(32, dropout=0.2, recurrent_dropout=0.1, return_sequences=True))
-    branch2.add(LSTM(8, dropout=0.2, recurrent_dropout=0.1))
-    branch2.add(Dense(X2.shape[1], input_shape=(X2.shape[1], ), init='normal', activation='relu'))
+    branch2.add(Embedding(X2.shape[0], 8, input_length=X2.shape[1]))
+    branch2.add(Conv1D(filters=200, kernel_size=9, padding='same', activation='relu', strides=1))
+    branch2.add(MaxPooling1D(pool_size=2, strides=2))
+#    branch2.add(LSTM(64, dropout=0.2, recurrent_dropout=0.1, return_sequences=True))
+#    branch2.add(LSTM(32, dropout=0.2, recurrent_dropout=0.1, return_sequences=True))
+    branch2.add(LSTM(32, dropout=0.1, recurrent_dropout=0.1))
+    branch2.add(Dense(X2.shape[1], input_shape=(X2.shape[1], ), init='uniform', activation='relu'))
     branch2.add(Dense(1, init='normal', activation='sigmoid'))
     #branch2.add(BatchNormalization())
     
     branch3 = Sequential()
-    branch3.add(Dense(X3.shape[1], input_shape=(X3.shape[1], ), init='normal', activation='relu'))
+    branch3.add(Dense(X3.shape[1], input_shape=(X3.shape[1], ), init='uniform', activation='relu'))
     branch3.add(Dense(1, init='normal', activation='sigmoid'))
     #branch3.add(BatchNormalization())
     
@@ -84,7 +84,7 @@ def get_mergerd_model(X1, X2, X3):
     model.add(Merge([branch1, branch2, branch3], mode='concat'))
     #model.add(BatchNormalization())
     model.add(Dense(256, init = 'normal', activation ='sigmoid'))
-    model.add(Dropout(0.2))
+    model.add(Dropout(0.1))
     model.add(Dense(1, init = 'normal', activation ='sigmoid'))
     
     return model
@@ -94,8 +94,8 @@ def get_mergerd_model(X1, X2, X3):
 
 def get_options():
     from keras import optimizers
-    #opt = optimizers.Nadam(lr=0.002, beta_1=0.9, beta_2=0.999, epsilon=1e-08, schedule_decay=0.004)
-    opt = optimizers.RMSprop(lr=0.001, rho=0.9, epsilon=1e-08, decay=0.0)
+    opt = optimizers.Nadam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-08, schedule_decay=0.004)
+    #opt = optimizers.RMSprop(lr=0.001, rho=0.9, epsilon=1e-08, decay=0.0)
     return opt
 
 # fix random seed for reproducibility
@@ -123,6 +123,7 @@ kf.get_n_splits(X, Y)
 
 cvscores = []
 for train_index, test_index in kf.split(X, Y):
+    
     X_train = X[train_index,:]
     X_train2 = X2[train_index,:]
     #X_train2 = X_train2[:,:,numpy.newaxis]
@@ -159,9 +160,11 @@ for train_index, test_index in kf.split(X, Y):
     model = get_mergerd_model(X_train, X_train2, X_train3)
     opt = get_options()
     
-    model.compile(loss='binary_crossentropy', optimizer=opt, metrics=['accuracy'])
+    loss_function = ['mse', 'binary_crossentropy']
+    
+    model.compile(loss=loss_function[1], optimizer=opt, metrics=['accuracy'])
     print(model.summary())
-    history = model.fit([X_train, X_train2, X_train3], y_train, validation_split=0.1, epochs=100, batch_size=64, callbacks=[earlyStopping], class_weight={0:.3, 1:.7})
+    history = model.fit([X_train, X_train2, X_train3], y_train, validation_split=0.1, epochs=100, batch_size=64, callbacks=[earlyStopping], class_weight={0:.2, 1:.8})
     print(history.history.keys())
     
     plt.figure()
