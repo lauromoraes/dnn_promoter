@@ -6,6 +6,8 @@ Created on Tue Oct 31 15:44:05 2017
 @author: fnord
 """
 
+import numpy as np
+
 class BaseData(object):
     def __init__(self, npath, ppath):
         self.ppath = ppath
@@ -151,6 +153,61 @@ class SequenceSimpleData(BaseData):
         from numpy import vstack
         return vstack([self.enconde_seq(seq) for seq in seqs])
 
+class SequenceNucHotvector(BaseData):
+    
+    NUC_HOT_VECTOR = {
+            'A' : np.array([[1.], [0.], [0.], [0.]]),
+            'C' : np.array([[0.], [1.], [0.], [0.]]),
+            'G' : np.array([[0.], [0.], [1.], [0.]]),
+            'T' : np.array([[0.], [0.], [0.], [1.]])
+    }
+    
+    def __init__(self, npath, ppath):
+        super(SequenceNucHotvector, self).__init__(npath, ppath)
+        self.set_data()
+
+    def enconde_seq(self, seq):
+        convHot = lambda x : self.NUC_HOT_VECTOR[nuc]
+        return np.hstack([ convHot(nuc) for nuc in seq ]).reshape(1, 4, len(seq), 1)
+    
+    def encode_sequences(self, seqs):
+        return np.vstack([self.enconde_seq(seq) for seq in seqs])
+
+class SequenceMotifHot(BaseData):
+    
+    NUC_HOT_VECTOR = {
+            'A' : np.array([[1.], [0.], [0.], [0.]]),
+            'C' : np.array([[0.], [1.], [0.], [0.]]),
+            'G' : np.array([[0.], [0.], [1.], [0.]]),
+            'T' : np.array([[0.], [0.], [0.], [1.]])
+    }
+
+    def __init__(self, npath, ppath):
+        super(SequenceMotifHot, self).__init__(npath, ppath)
+        self.set_motifs(ppath)
+        self.set_data()
+        
+    def enconde_seq(self, seq):
+        convHot = lambda x, i : self.mot[x][i] * self.mot[x][i] * 100 * self.NUC_HOT_VECTOR[x]
+        return np.hstack([ convHot(seq[i], i) for i in range(len(seq)) ]).reshape(1, 4, len(seq), 1)
+    
+    def encode_sequences(self, seqs):
+        return np.vstack([self.enconde_seq(seq) for seq in seqs])
+    
+    def set_motifs(self, ppath):
+        from Bio import motifs
+        seqs = self.get_sequences_from_fasta(ppath)
+        mot = motifs.create(seqs)
+        self.mot = {'A':mot.pwm.log_odds()['A'], 'C':mot.pwm.log_odds()['C'], 'G':mot.pwm.log_odds()['G'], 'T':mot.pwm.log_odds()['T']}
+#        print mot.counts.normalize()
+#        mot.weblogo('weblogo.png')
+    
+#npath = "fasta/Bacillus_non_prom.fa"
+#ppath = "fasta/Bacillus_prom.fa"
+#mldata = SequenceMotifHot(npath, ppath)
+#print mldata.getX()
+
+
 class SequenceDinucProperties(BaseData):
     
     def __init__(self, npath, ppath):
@@ -177,8 +234,7 @@ class SequenceDinucProperties(BaseData):
                 
         convProp = lambda x, prop : np.array([ self.convtable2[prop, dinuc] for dinuc in x ])
         
-#        return np.vstack([ convProp(seq, i) for i in range(38) ]).reshape(1, 38,len(seq))
-        return np.vstack([ convProp(seq, i) for i in range(38) ]).reshape(38,len(seq), 1)
+        return np.vstack([ convProp(seq, i) for i in range(38) ]).reshape(38,len(seq),1)
         
 #        return convertedseq.reshape(1, 38, len(seq))
         
