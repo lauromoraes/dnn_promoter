@@ -40,7 +40,10 @@ class BaseStatistics(object):
     
     def setPrec(self):
         # Precision
-        self.Prec = .0 if self.tp+self.fp == 0 else self.tp/(self.tp+self.fp)
+        try:
+            self.Prec = float(self.tp)/(self.tp+self.fp)
+        except:
+            self.Prec = 0.0
     
     def setSn(self):
         # True positive rate - Recall
@@ -56,12 +59,18 @@ class BaseStatistics(object):
     
     def setF1(self):
         # F1-measure
-        self.F1 = .0 if (self.Prec+self.Sn)==0 else 2*float(self.Prec*self.Sn)/(self.Prec+self.Sn)
+        try:
+            self.F1 = 2*float(self.Prec*self.Sn)/(self.Prec+self.Sn)
+        except:
+            self.F1 = 0.0
     
     def setMcc(self):
         from math import sqrt
         # Matthews correlation coefficient
-        self.Mcc = .0 if (self.tp+self.fp)*(self.tp+self.fn)*(self.tn+self.fp)*(self.tn+self.fn)==0 else float((self.tp*self.tn)-(self.fp*self.fn))/sqrt((self.tp+self.fp)*(self.tp+self.fn)*(self.tn+self.fp)*(self.tn+self.fn))
+        try:
+            self.Mcc = float((self.tp*self.tn)-(self.fp*self.fn))/sqrt((self.tp+self.fp)*(self.tp+self.fn)*(self.tn+self.fp)*(self.tn+self.fn))
+        except:
+            self.Mcc = 0.0
     
     def __str__(self):
         sep = '================================================================='

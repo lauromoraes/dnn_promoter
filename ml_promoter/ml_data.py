@@ -177,7 +177,8 @@ class SequenceDinucProperties(BaseData):
                 
         convProp = lambda x, prop : np.array([ self.convtable2[prop, dinuc] for dinuc in x ])
         
-        return np.vstack([ convProp(seq, i) for i in range(38) ]).reshape(38,len(seq),1)
+#        return np.vstack([ convProp(seq, i) for i in range(38) ]).reshape(1, 38,len(seq))
+        return np.vstack([ convProp(seq, i) for i in range(38) ]).reshape(38,len(seq), 1)
         
 #        return convertedseq.reshape(1, 38, len(seq))
         
