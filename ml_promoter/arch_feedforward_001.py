@@ -18,7 +18,6 @@ data = None
 limits = None
 lengths = None
 
-    
 def setup_data(npath, ppath):
     from ml_data import SimpleHistData
     from ml_data import DinucCrossCovarData

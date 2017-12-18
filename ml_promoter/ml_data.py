@@ -8,6 +8,9 @@ Created on Tue Oct 31 15:44:05 2017
 
 import numpy as np
 
+# ================================================================
+# BaseData =======================================================
+# ================================================================
 class BaseData(object):
     def __init__(self, npath, ppath):
         self.ppath = ppath
@@ -86,7 +89,29 @@ class BaseData(object):
         data = array([''.join(x) for x in tups])
         self.label_encoder = LabelEncoder()
         self.label_encoder.fit(data)
-
+    
+    def value2label_dinuc_converter(self):
+        import numpy as np
+        tab = np.loadtxt('dinuc_values', delimiter=',', dtype=np.float32)
+        conv = dict()
+        cnt = 0
+        for i in range(len(tab)):
+            conv[i] = dict()
+            for elem in tab[i]:
+                if not elem in conv[i].keys():
+                    conv[i][elem] = cnt
+                    cnt += 1
+        T = list()
+        for i in range(len(tab)):
+            R = list()
+            for elem in tab[i]:
+                R.append( conv[i][elem] )
+            T.append( R )
+        return np.array( T )
+        
+# ================================================================
+# SequenceProteinData ============================================
+# ================================================================
 class SequenceProteinData(BaseData):
     STANDARD_GENETIC_CODE   =   {
         'TTT':0,    'TTC':0,    'TCT':10,    'TCC':10,
@@ -117,34 +142,28 @@ class SequenceProteinData(BaseData):
         from numpy import vstack
         return vstack([self.transform(self.get_kmers(seq, k=3)) for seq in seqs])
 
+# ================================================================
+# SequenceNucsData ===============================================
+# ================================================================
 class SequenceNucsData(BaseData):
     def __init__(self, npath, ppath, k=1):
         super(SequenceNucsData, self).__init__(npath, ppath)
         self.k = k
         self.set_kmers_encoder()
-        posdata = self.enconde_positives()
-        negdata = self.enconde_negatives()
-        assert negdata.shape[1]==posdata.shape[1]
-        self.n_samples_pos = posdata.shape[0]
-        self.n_samples_neg = negdata.shape[0]
-        self.sample_size = posdata.shape[1]
-        self.set_XY(negdata, posdata)
+        self.set_data()
     
     def encode_sequences(self, seqs):
         from numpy import vstack
         return vstack([self.label_encoder.transform(self.get_kmers(seq, k=self.k)) for seq in seqs])
 
+# ================================================================
+# SequenceSimpleData =============================================
+# ================================================================
 class SequenceSimpleData(BaseData):
     def __init__(self, npath, ppath, k=1):
         super(SequenceSimpleData, self).__init__(npath, ppath)
         self.k = k
-        posdata = self.enconde_positives()
-        negdata = self.enconde_negatives()
-        assert negdata.shape[1]==posdata.shape[1]
-        self.n_samples_pos = posdata.shape[0]
-        self.n_samples_neg = negdata.shape[0]
-        self.sample_size = posdata.shape[1]
-        self.set_XY(negdata, posdata)
+        self.set_data()
     
     def enconde_seq(self, seq):
         return [0 if x=='A' or x=='T' else 1 for x in seq]
@@ -152,7 +171,10 @@ class SequenceSimpleData(BaseData):
     def encode_sequences(self, seqs):
         from numpy import vstack
         return vstack([self.enconde_seq(seq) for seq in seqs])
-
+    
+# ================================================================
+# SequenceNucHotvector ===========================================
+# ================================================================
 class SequenceNucHotvector(BaseData):
     
     NUC_HOT_VECTOR = {
@@ -173,6 +195,9 @@ class SequenceNucHotvector(BaseData):
     def encode_sequences(self, seqs):
         return np.vstack([self.enconde_seq(seq) for seq in seqs])
 
+# ================================================================
+# SequenceMotifHot ===============================================
+# ================================================================
 class SequenceMotifHot(BaseData):
     
     NUC_HOT_VECTOR = {
@@ -201,64 +226,105 @@ class SequenceMotifHot(BaseData):
         self.mot = {'A':mot.pwm.log_odds()['A'], 'C':mot.pwm.log_odds()['C'], 'G':mot.pwm.log_odds()['G'], 'T':mot.pwm.log_odds()['T']}
 #        print mot.counts.normalize()
 #        mot.weblogo('weblogo.png')
-    
-#npath = "fasta/Bacillus_non_prom.fa"
-#ppath = "fasta/Bacillus_prom.fa"
-#mldata = SequenceMotifHot(npath, ppath)
-#print mldata.getX()
-
-
-class SequenceDinucProperties(BaseData):
-    
+# ===============================================================
+        
+        
+        
+        
+        
+        
+        
+        
+# ================================================================
+# SequenceDinucLabelsProperties ==================================
+# ================================================================
+class SequenceDinucLabelsProperties(BaseData):
     def __init__(self, npath, ppath):
-        import numpy as np
-        super(SequenceDinucProperties, self).__init__(npath, ppath)
+        super(SequenceDinucLabelsProperties, self).__init__(npath, ppath)
+        self.convtable2 = self.value2label_dinuc_converter()
         self.k = 2
         self.set_kmers_encoder()
-        # Setup tables for convert nucleotides to 2d properties matrix - multichannel signals
-        self.convtable2 = np.loadtxt('dinuc_values', delimiter=',', dtype=np.float32)
-        
-        posdata = self.enconde_positives()
-        negdata = self.enconde_negatives()
-        print posdata.shape
-        print negdata.shape
-        assert negdata.shape[1]==posdata.shape[1]
-        self.n_samples_pos = posdata.shape[0]
-        self.n_samples_neg = negdata.shape[0]
-        self.sample_size = posdata.shape[1]
-        self.set_XY(negdata, posdata)
-            
-        
+        self.set_data()
+    
     def encode_seq(self, seq):
-        import numpy as np
-                
-        convProp = lambda x, prop : np.array([ self.convtable2[prop, dinuc] for dinuc in x ])
+        import numpy as np                
+        convProp = lambda x, prop : np.array([ self.convtable2[prop, x[i]] for i in range(len(x)) ])        
+        return np.hstack([ convProp(seq, i) for i in range(38) ])
         
-        return np.vstack([ convProp(seq, i) for i in range(38) ]).reshape(38,len(seq),1)
-        
-#        return convertedseq.reshape(1, 38, len(seq))
-        
-        
-
     def encode_sequences(self, seqs):
         from numpy import vstack, array
         mat = vstack([self.label_encoder.transform(self.get_kmers(seq, k=self.k)) for seq in seqs])
         return array([ self.encode_seq(seq) for seq in mat ])
 
 
+
+
+
+
+
+
+
+# ================================================================
+# SequenceDinucProperties ========================================
+# ================================================================
+class SequenceDinucProperties(BaseData):
+    
+    def __init__(self, npath, ppath):
+        from Bio import motifs
+        from sklearn.preprocessing import MinMaxScaler
+        import numpy as np
+        super(SequenceDinucProperties, self).__init__(npath, ppath)
+        self.k = 2
+        self.set_motifs(ppath)
+        self.set_kmers_encoder()
+        # Setup tables for convert nucleotides to 2d properties matrix - multichannel signals
+        self.convtable2 = np.loadtxt('dinuc_values', delimiter=',', dtype=np.float32)
+        scaler = MinMaxScaler(feature_range=(0, 1))
+        
+        # MIN-MAX SCALER
+        for prop in range(len(self.convtable2)):
+            data = np.vstack([ [x] for x in self.convtable2[prop, :] ])
+            scaler.fit(data)
+            self.convtable2[prop, :] = scaler.transform(data).transpose()[0]
+            #print self.convtable2[prop, :]
+        
+        self.set_data()
+#        seqs = self.get_sequences_from_fasta(self.ppath)
+#        instances = motifs.create(seqs)
+#        instances.weblogo('test.png')
+        
+    def set_motifs(self, ppath):
+        from Bio import motifs
+        seqs = self.get_sequences_from_fasta(ppath)
+        mot = motifs.create(seqs)
+        self.mot = {'A':mot.pwm['A'], 'C':mot.pwm['C'], 'G':mot.pwm['G'], 'T':mot.pwm['T']}
+        
+            
+        
+    def encode_seq(self, seq):
+        import numpy as np
+                
+        convProp = lambda x, prop : np.array([ self.convtable2[prop, x[i]] for i in range(len(x)) ])
+        
+        return np.vstack([ convProp(seq, i) for i in range(38) ]).reshape(38,len(seq),1)
+        
+#        return convertedseq.reshape(1, 38, len(seq))
+
+    def encode_sequences(self, seqs):
+        from numpy import vstack, array
+        mat = vstack([self.label_encoder.transform(self.get_kmers(seq, k=self.k)) for seq in seqs])
+        return array([ self.encode_seq(seq) for seq in mat ])
+        
+# ================================================================
+# SimpleHistData =================================================
+# ================================================================
 class SimpleHistData(BaseData):
     
     def __init__(self, npath, ppath, k=1, upto=False):
         super(SimpleHistData, self).__init__(npath, ppath)
         self.k = k
         self.upto = upto
-        posdata = self.enconde_positives()
-        negdata = self.enconde_negatives()
-        assert negdata.shape[1]==posdata.shape[1]
-        self.n_samples_pos = posdata.shape[0]
-        self.n_samples_neg = negdata.shape[0]
-        self.sample_size = posdata.shape[1]
-        self.set_XY(negdata, posdata)
+        self.set_data()
     
     def encode_sequences(self, seqs):
         from repDNA.nac import Kmer
@@ -266,19 +332,16 @@ class SimpleHistData(BaseData):
         kmer = Kmer(k=self.k, upto=self.upto, normalize=True)
         return vstack(kmer.make_kmer_vec(seqs))
 
+# ================================================================
+# DinucAutoCovarData =============================================
+# ================================================================
 class DinucAutoCovarData(BaseData):
     
     def __init__(self, npath, ppath, k=1, upto=False):
         super(DinucAutoCovarData, self).__init__(npath, ppath)
         self.k = k
         self.upto = upto
-        posdata = self.enconde_positives()
-        negdata = self.enconde_negatives()
-        assert negdata.shape[1]==posdata.shape[1]
-        self.n_samples_pos = posdata.shape[0]
-        self.n_samples_neg = negdata.shape[0]
-        self.sample_size = posdata.shape[1]
-        self.set_XY(negdata, posdata)
+        self.set_data()
     
     def encode_sequences(self, seqs):
         from repDNA.ac import DAC
@@ -286,22 +349,114 @@ class DinucAutoCovarData(BaseData):
         dac = DAC(self.k)
         return vstack(dac.make_dac_vec(seqs, all_property=True))
 
+# ================================================================
+# DinucCrossCovarData ============================================
+# ================================================================
 class DinucCrossCovarData(BaseData):
     
     def __init__(self, npath, ppath, k=1, upto=False):
         super(DinucCrossCovarData, self).__init__(npath, ppath)
         self.k = k
         self.upto = upto
-        posdata = self.enconde_positives()
-        negdata = self.enconde_negatives()
-        assert negdata.shape[1]==posdata.shape[1]
-        self.n_samples_pos = posdata.shape[0]
-        self.n_samples_neg = negdata.shape[0]
-        self.sample_size = posdata.shape[1]
-        self.set_XY(negdata, posdata)
+        self.set_data()
     
     def encode_sequences(self, seqs):
         from repDNA.ac import DCC
         from numpy import vstack
         dcc = DCC(self.k)
         return vstack(dcc.make_dcc_vec(seqs, all_property=True))
+
+
+
+
+
+
+
+
+
+
+
+
+# ================================================================
+# ======================= TEST ===================================
+# ================================================================
+TEST = 0
+
+if TEST==1:
+    #from pandas.tools.plotting import andrews_curves
+    from matplotlib.pyplot import *
+     
+    from IPython.display import set_matplotlib_formats
+    set_matplotlib_formats('png', 'pdf')
+    
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    
+    npath = "fasta/Bacillus_non_prom.fa"
+    ppath = "fasta/Bacillus_prom.fa"
+    
+    #mldata = SequenceMotifHot(npath, ppath)
+    #print mldata.getX()
+    
+    
+    data = SequenceDinucProperties(npath, ppath)
+    X = data.getX()
+    Y = data.getY()
+    fsize=(18,12)
+    
+    #for i in range(38):
+    #    D = pd.DataFrame( data=X[:,i,:,0].reshape( X.shape[0],  X.shape[2]) )
+    #    D = D.iloc[:, 45:66]
+    #    D[21] = Y
+    #    print i
+    #    pd.tools.plotting.parallel_coordinates(D, 21)
+    #    pd.tools.plotting.andrews_curves(D, 21)
+    #    plt.show()
+    
+    i=10
+    D = pd.DataFrame( data=X[:,i,:,0].reshape( X.shape[0],  X.shape[2]) )
+    
+    F = D
+    F[F.shape[1]+1] = Y
+    
+    #plt.figure(figsize=(20,10))
+    #pd.plotting.parallel_coordinates(F, F.shape[1], color=['#FD1999', '#00E6FE'] )
+    #plt.savefig('parallel'+'.pdf')
+    #plt.show()
+    
+    seg = range(45,66)
+    D = D.iloc[:, seg]
+    D[D.shape[1]+1] = Y
+    
+    neg = D[D[D.shape[1]] == 0]
+    pos = D[D[D.shape[1]] == 1]
+    
+    #plt.figure(figsize=fsize)
+    #pd.plotting.parallel_coordinates(pos, pos.shape[1], color='#00E6FE' )
+    #pd.plotting.parallel_coordinates(neg, neg.shape[1], color='#FD1999' )
+    #plt.show()
+    
+    plt.figure(figsize=fsize)
+    pd.plotting.parallel_coordinates(neg, neg.shape[1], color='#FD1999' )
+    pd.plotting.parallel_coordinates(pos, pos.shape[1], color='#00E6FE' )
+    plt.show()
+    #plt.figure(figsize=(20,10))
+    #pd.tools.plotting.parallel_coordinates(D, D.shape[1])
+    
+    #plt.savefig('parallel'+'.pdf')
+    #plt.figure(figsize=(20,10))
+    #pd.tools.plotting.andrews_curves(D, D.shape[1], colorbar)
+    #plt.savefig('andrews'+'.pdf')
+    plt.show()
+elif TEST==2:
+    npath = "fasta/Bacillus_non_prom.fa"
+    ppath = "fasta/Bacillus_prom.fa"
+    data = SequenceDinucLabelsProperties(npath, ppath)
+    print data.getX()[0, -1, :, 0]
+    
+
+            
+        
+        
+        
+    
