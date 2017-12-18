@@ -61,22 +61,22 @@ def create_model(optimizer='nadam', activation='sigmoid'):
     
     emb = Embedding(314, 64)(shared_input)
     
-    conv1 = Conv1D(filters=200, kernel_size=15, strides=1, padding='same', activation='relu', name='conv2d')(emb)
-    
-    pool = MaxPool1D(pool_size=5, name='max2d')(conv1)
-    
-    flat2 = TimeDistributed(Flatten(name='flatten'))(pool)
+#    conv1 = Conv1D(filters=100, kernel_size=9, strides=1, padding='same', activation='relu', name='conv2d')(emb)
+#    
+#    pool = MaxPool1D(pool_size=5, name='max2d')(conv1)
+#    
+#    flat2 = TimeDistributed(Flatten(name='flatten'))(pool)
     
 #    
-    lstm = LSTM(32, dropout=0.1, recurrent_dropout=0.1, name='lstm')(flat2)
+    lstm = LSTM(16, dropout=0.2, recurrent_dropout=0.2, name='lstm')(emb)
     
-    drop = Dropout(.1)(lstm)
+    drop = Dropout(.3)(lstm)
     
-#    hidden = Dense(128, activation=K.sigmoid, name='hidden')(drop)
+    hidden = Dense(128, activation=K.sigmoid, name='hidden')(drop)
     
     # Add last neuron
 #            prob = Dense(1, activation=K.sigmoid, kernel_initializer=K.random_normal)
-    prob = Dense(1, activation=K.sigmoid, name='prob')(drop)
+    prob = Dense(1, activation=K.sigmoid, name='prob')(hidden)
     
     
     # Setup model object
@@ -96,12 +96,12 @@ def run(npath, ppath):
     
     
     # Params
-    weightTrue = 0.9
+    weightTrue = 0.7
     class_weight = {0:(1-weightTrue), 1:weightTrue}
     earlyStopping=EarlyStopping(monitor='val_loss', patience=10, verbose=0, mode='auto')
 #    opt = optimizers.Nadam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-08, schedule_decay=0.004)
-#    opt = optimizers.Adam(lr=0.001, decay=0.0)
-    opt = optimizers.RMSprop(lr=0.0001, decay=0.0)
+    opt = optimizers.Adam(lr=0.001, decay=0.0)
+#    opt = optimizers.RMSprop(lr=0.0001, decay=0.0)
     
     # Setup all data for inputs
     setup_data(npath, ppath)
