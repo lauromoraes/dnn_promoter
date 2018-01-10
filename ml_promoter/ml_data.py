@@ -16,11 +16,18 @@ class BaseData(object):
         self.ppath = ppath
         self.npath = npath
 
+#    def get_sequences_from_fasta(self, path):
+#        seqs = list()
+#        with open(path) as f:
+#            for l in f.readlines()[1::2]:
+#                seqs.append(l[:-1])
+#        return seqs
+
     def get_sequences_from_fasta(self, path):
+        from Bio import SeqIO
         seqs = list()
-        with open(path) as f:
-            for l in f.readlines()[1::2]:
-                seqs.append(l[:-1])
+        for seq_record in SeqIO.parse(path, "fasta"):
+                seqs.append( str(seq_record.seq.upper()) )
         return seqs
         
     def get_kmers(self, seq, k=1, step=1):
