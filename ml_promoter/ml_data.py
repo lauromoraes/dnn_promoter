@@ -27,7 +27,9 @@ class BaseData(object):
         from Bio import SeqIO
         seqs = list()
         for seq_record in SeqIO.parse(path, "fasta"):
-                seqs.append( str(seq_record.seq.upper()) )
+                s = str(seq_record.seq.upper())
+                if 'N' not in s:
+                    seqs.append( s )
         return seqs
         
     def get_kmers(self, seq, k=1, step=1):
