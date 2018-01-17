@@ -56,8 +56,8 @@ def get_mergerd_model(X1, X2):
     vector_length_di = 32
     modelDi = Sequential()    
     modelDi.add(Embedding(16, vector_length_di, input_length=X1.shape[1]))    
-#    modelDi.add(Conv1D(filters=200, kernel_size=5, strides=2, activation='relu', kernel_initializer=initializers[0]))
-#    modelDi.add(MaxPooling1D(pool_size=3, strides=1))
+    modelDi.add(Conv1D(filters=300, kernel_size=9, strides=1, activation='relu', kernel_initializer=initializers[0]))
+    modelDi.add(MaxPooling1D(pool_size=3, strides=1))
 #    modelDi.add(Flatten())
     modelDi.add(Bidirectional(LSTM(50, dropout=0.2, recurrent_dropout=0.3)))
 #    modelDi.add(Bidirectional(LSTM(50, dropout=0.1, recurrent_dropout=0.2, return_sequences=True)))
@@ -66,8 +66,8 @@ def get_mergerd_model(X1, X2):
     vector_length_tri = 64   
     modelTri = Sequential()    
     modelTri.add(Embedding(64, vector_length_tri, input_length=X2.shape[1]))
-#    modelTri.add(Conv1D(filters=200, kernel_size=5, strides=2, activation='relu', kernel_initializer=initializers[0]))
-#    modelTri.add(MaxPooling1D(pool_size=3, strides=1))
+    modelTri.add(Conv1D(filters=300, kernel_size=9, strides=1, activation='relu', kernel_initializer=initializers[0]))
+    modelTri.add(MaxPooling1D(pool_size=3, strides=1))
 #    modelTri.add(Flatten())
     modelTri.add(Bidirectional(LSTM(50, dropout=0.2, recurrent_dropout=0.3)))
 #    modelTri.add(Bidirectional(LSTM(50, dropout=0.1, recurrent_dropout=0.2, return_sequences=True)))
@@ -96,6 +96,7 @@ def get_options():
     from keras import optimizers
     opt = optimizers.Nadam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-08, schedule_decay=0.004)
 #    opt = optimizers.RMSprop(lr=0.001, rho=0.9, epsilon=1e-08, decay=0.0)
+    opt = 'adam'
     return opt
 
 # fix random seed for reproducibility
