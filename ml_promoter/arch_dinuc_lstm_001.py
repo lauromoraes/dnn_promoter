@@ -35,37 +35,57 @@ initializers = ['glorot_uniform', 'lecun_uniform', 'uniform']
 
 
 def get_mergerd_model(X1, X2):
-    from keras.models import Sequential, Model
-    from keras.layers import Dense, Merge, Conv2D, MaxPooling2D, Dropout, AveragePooling2D
-    from keras.layers import Dense, LSTM, Flatten, TimeDistributed, Bidirectional
+    from keras.models import Sequential
+    from keras.models import Model
+    from keras.layers import Dense
+    from keras.layers import Merge
+    from keras.layers import Conv1D
+    from keras.layers import MaxPooling1D
+    from keras.layers import AveragePooling1D
+    from keras.layers import Dropout
+    from keras.layers import Flatten
+    from keras.layers import TimeDistributed
+    from keras.layers import Bidirectional
+    from keras.layers import LSTM
+    from keras.layers import Concatenate
     from keras.layers.normalization import BatchNormalization
     from keras.layers.embeddings import Embedding
     from keras import backend as K
     from keras.constraints import maxnorm
 
-    model = Sequential()
-#    model.add(input_shape(X.shape[0], 8, c))
-    model.add(Conv2D(filters=300, kernel_size=(X1.shape[1],9), kernel_initializer=initializers[0],  activation='relu', strides=(1, 3), input_shape=(X1.shape[1], X1.shape[2], X1.shape[3] ) ) )
-    model.add(MaxPooling2D(pool_size=(1,3), strides=(1,1)))
-    model.add(Flatten())
+    vector_length_di = 32
+    modelDi = Sequential()    
+    modelDi.add(Embedding(16, vector_length_di, input_length=X1.shape[1]))    
+#    modelDi.add(Conv1D(filters=200, kernel_size=5, strides=2, activation='relu', kernel_initializer=initializers[0]))
+#    modelDi.add(MaxPooling1D(pool_size=3, strides=1))
+#    modelDi.add(Flatten())
+    modelDi.add(Bidirectional(LSTM(50, dropout=0.2, recurrent_dropout=0.3)))
+#    modelDi.add(Bidirectional(LSTM(50, dropout=0.1, recurrent_dropout=0.2, return_sequences=True)))
+#    modelDi.add(TimeDistributed(Dense(1, activation=K.sigmoid, name='DDi')))
+    
+    vector_length_tri = 64   
+    modelTri = Sequential()    
+    modelTri.add(Embedding(64, vector_length_tri, input_length=X2.shape[1]))
+#    modelTri.add(Conv1D(filters=200, kernel_size=5, strides=2, activation='relu', kernel_initializer=initializers[0]))
+#    modelTri.add(MaxPooling1D(pool_size=3, strides=1))
+#    modelTri.add(Flatten())
+    modelTri.add(Bidirectional(LSTM(50, dropout=0.2, recurrent_dropout=0.3)))
+#    modelTri.add(Bidirectional(LSTM(50, dropout=0.1, recurrent_dropout=0.2, return_sequences=True)))
+#    modelTri.add(TimeDistributed(Dense(1, activation=K.sigmoid, name='DTri')))
+    
+    
+    last = Sequential()    
+    last.add(Merge([modelDi, modelTri], mode='concat', concat_axis=-1))  
+#    last.add(Concatenate([modelDi, modelTri]))
+    last.add(Dropout(.2))    
+    last.add(Dense(1, activation=K.sigmoid, name='DLast'))
+    
 #    model.add(TimeDistributed(Flatten()))
 #    model.add(Bidirectional(LSTM(64, dropout=0.2, recurrent_dropout=0.1, return_sequences=True)))
 #    model.add(Bidirectional(LSTM(64, dropout=0.2, recurrent_dropout=0.1)))
 #    branch2.add(LSTM(32, dropout=0.2, recurrent_dropout=0.1, return_sequences=True))
 #    model.add(LSTM(32, dropout=0.1, recurrent_dropout=0.1, input_shape=(X.shape[1], )))
 #    model.add(Dense(128, activation=K.sigmoid))
-    
-    hist = Sequential()
-    hist.add(Dense(X2.shape[1], input_shape=(X2.shape[1], )))
-    
-    
-    last = Sequential()
-    
-    last.add(Merge([model, hist], mode='concat'))
-    
-    last.add(Dropout(.1))
-    
-    last.add(Dense(1, activation=K.sigmoid))
     
     return last
     
@@ -82,8 +102,8 @@ def get_options():
 numpy.random.seed(7)
 
 
-earlyStopping=EarlyStopping(monitor='val_loss', patience=10, verbose=0, mode='auto')
-reduceLR = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=5, verbose=0, mode='auto', epsilon=0.001, cooldown=0, min_lr=0)
+earlyStopping=EarlyStopping(monitor='val_loss', patience=30, verbose=0, mode='auto')
+reduceLR = ReduceLROnPlateau(monitor='val_loss', factor=0.01, patience=5, verbose=0, mode='auto', epsilon=0.001, cooldown=0, min_lr=0)
 
 #npath = "fasta/Bacillus_non_prom.fa"
 #ppath = "fasta/Bacillus_prom.fa"
@@ -94,35 +114,37 @@ reduceLR = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=5, verbose
 npath = "fasta/Ecoli_non_prom.fa"
 ppath = "fasta/Ecoli_prom.fa"
 
-#mldata = SequenceNucsData(npath, ppath, k=3)
-mldata = SequenceDinucProperties(npath, ppath)
-mldata2 = SimpleHistData(npath, ppath, k=4, upto=True)
-
+mldata = SequenceNucsData(npath, ppath, k=2)
+mldata2 = SequenceNucsData(npath, ppath, k=3)
 
 X = mldata.getX()
 X2 = mldata2.getX()
+newCol = numpy.array([-1 for _ in range(X2.shape[0])])
+X2 = numpy.column_stack([ X2, newCol ])
 Y = mldata.getY()
 
-print X.shape
-print Y.shape
+print 'X1: {}'.format(X.shape)
+print 'X2: {}'.format(X2.shape)
+print 'Y: {}'.format(Y.shape)
 
-posIndex = numpy.where( Y[:]==1 )[0]
-negIndex = numpy.where( Y[:]==0 )[0]
 
-diff = len(negIndex)-len(posIndex)
-diff = len(negIndex)-diff
-print 'DIFF', diff
-
-toremove = numpy.arange(len(negIndex))
-numpy.random.shuffle(toremove)
-toremove=toremove[:diff]
-
-X = numpy.delete(X, toremove, 0)
-X2 = numpy.delete(X2, toremove, 0)
-Y = numpy.delete(Y, toremove, 0)
-print 'shape'
-print X.shape
-print Y.shape
+toRemove = False
+if toRemove:
+    posIndex = numpy.where( Y[:]==1 )[0]
+    negIndex = numpy.where( Y[:]==0 )[0]
+    
+    diff = len(negIndex)-len(posIndex)
+    diff = len(negIndex)-diff
+    print 'Pos: {} | Neg; {} | DIFF: {}'.format(len(posIndex), len(negIndex), diff)
+    
+    toremove = numpy.arange(len(negIndex))
+    numpy.random.shuffle(toremove)
+    toremove=toremove[:diff]
+    
+    X = numpy.delete(X, toremove, 0)
+    X2 = numpy.delete(X2, toremove, 0)
+    Y = numpy.delete(Y, toremove, 0)
+    print 'Pos remove shape = X {} | Y {}'.format(X.shape, Y.shape)
 
 
 kf = StratifiedKFold(n_splits=10, shuffle=True, random_state=1234)
@@ -131,13 +153,7 @@ kf.get_n_splits(X, Y)
 cvscores = []
 cnt = 0
 
-seed = numpy.random.randint(0,100000,1)[0]
-print 'SEED', seed
 numpy.random.seed(123556)    
-props = numpy.random.randint(0,2,38)
-print 'NUM SELECTEDS', numpy.sum(props)
-print props
-props = [ True if x==1 else False for x in props ]
 
 for train_index, test_index in kf.split(X, Y):
     
@@ -147,22 +163,12 @@ for train_index, test_index in kf.split(X, Y):
     
     X_test = X[test_index,:]
     X2_test = X2[test_index,:]
-    y_test = Y[test_index]
-    
-    
-    
-    X_train = X_train[:,props,:,:]
-    X_test = X_test[:,props,:,:]
-    
-    print X_train.shape
-    
+    y_test = Y[test_index]    
     
     if cnt==0:
         print( len(y_train[ numpy.where(y_train[:]==0) ]), len(y_train[ numpy.where(y_train[:]==1) ]) )
         print( len(y_test[ numpy.where(y_test[:]==0) ]), len(y_test[ numpy.where(y_test[:]==1) ]) )
-    
-    
-    #model = get_model(X_train)
+
     model = get_mergerd_model(X_train, X2_train)
     opt = get_options()
     
@@ -172,32 +178,11 @@ for train_index, test_index in kf.split(X, Y):
     tensorboard = TensorBoard(log_dir="logs/{}".format(time()))
     if cnt==0:
         print(model.summary())
-    history = model.fit([X_train, X2_train], y_train, validation_split=0.2, epochs=250, batch_size=64, callbacks=[tensorboard,earlyStopping,reduceLR], class_weight={0:.3, 1:.7}, verbose=0)
-#    print(history.history.keys())
-    
-#    plt.figure()
-#    plt.ion()
-#    plt.plot(history.history['acc'])
-#    plt.plot(history.history['val_acc'])
-#    plt.title('model accuracy')
-#    plt.ylabel('accuracy')
-#    plt.xlabel('epoch')
-#    plt.legend(['train', 'test'], loc='upper left')
-#    plt.draw()
-#    plt.pause(0.001)
-#    plt.show()
-#    # summarize history for loss
-#    plt.figure()
-#    plt.ion()
-#    plt.plot(history.history['loss'])
-#    plt.plot(history.history['val_loss'])
-#    plt.title('model loss')
-#    plt.ylabel('loss')
-#    plt.xlabel('epoch')
-#    plt.legend(['train', 'test'], loc='upper left')
-#    plt.draw()
-#    plt.pause(0.001)
-#    plt.show()
+        
+#    calls = [tensorboard, earlyStopping, reduceLR]
+    calls = [tensorboard, earlyStopping]
+    weights={0:.3, 1:.7}
+    history = model.fit([X_train, X2_train], y_train, validation_split=0.1, epochs=250, batch_size=32, callbacks=calls, class_weight=weights, verbose=0)
     
     Y_pred = model.predict([X_test, X2_test])
     

@@ -401,8 +401,11 @@ if TEST==1:
     import pandas as pd
     import matplotlib.pyplot as plt
     
-    npath = "fasta/Bacillus_non_prom.fa"
-    ppath = "fasta/Bacillus_prom.fa"
+#    npath = "fasta/Bacillus_non_prom.fa"
+#    ppath = "fasta/Bacillus_prom.fa"
+    
+    npath = "fasta/Ecoli_non_prom.fa"
+    ppath = "fasta/Ecoli_prom.fa"
     
     #mldata = SequenceMotifHot(npath, ppath)
     #print mldata.getX()
@@ -422,7 +425,7 @@ if TEST==1:
     #    pd.tools.plotting.andrews_curves(D, 21)
     #    plt.show()
     
-    i=10
+    i=1
     D = pd.DataFrame( data=X[:,i,:,0].reshape( X.shape[0],  X.shape[2]) )
     
     F = D
@@ -433,7 +436,8 @@ if TEST==1:
     #plt.savefig('parallel'+'.pdf')
     #plt.show()
     
-    seg = range(45,66)
+#    seg = range(25,66)
+    seg = range(25,70)
     D = D.iloc[:, seg]
     D[D.shape[1]+1] = Y
     
@@ -462,10 +466,56 @@ elif TEST==2:
     ppath = "fasta/Bacillus_prom.fa"
     data = SequenceDinucLabelsProperties(npath, ppath)
     print data.getX()[0, -1, :, 0]
+
+elif TEST==3:
+    from sklearn.svm import SVC
+    from sklearn.ensemble import RandomForestClassifier
+    from sklearn.feature_selection import RFE
+    from sklearn.feature_selection import RFECV
+    from sklearn.model_selection import StratifiedKFold    
+    import pandas as pd
+    import matplotlib.pyplot as plt
     
+    npath = "fasta/Ecoli_non_prom.fa"
+    ppath = "fasta/Ecoli_prom.fa"
+    
+    data = SequenceDinucProperties(npath, ppath)
+    X = data.getX()
+    Y = data.getY()
+    
+    print 'X', X.shape
+    X = X.reshape(len(X), -1)
+    print 'X', X.shape
 
             
-        
-        
-        
+   # Create the RFE object and rank each pixel
+#    svc = SVC(kernel="linear", C=1)
+    tree = RandomForestClassifier(n_jobs=-1, max_features='sqrt')
+    rfecv = RFECV(estimator=tree, step=0.1, cv=StratifiedKFold(3), scoring='accuracy')
+    rfecv.fit(X, Y)
+    ranking = rfecv.ranking_.reshape(38, 79)
     
+    print("Optimal number of features : %d" % rfecv.n_features_)
+
+    # Plot number of features VS. cross-validation scores
+    plt.figure()
+    plt.xlabel("Number of features selected")
+    plt.ylabel("Cross validation score (nb of correct classifications)")
+    plt.plot(range(1, len(rfecv.grid_scores_) + 1), rfecv.grid_scores_)
+    plt.show()
+    
+    # Plot pixel ranking
+    plt.figure()
+    plt.matshow(ranking, cmap=plt.cm.Blues)
+    plt.colorbar()
+    plt.title("Ranking of pixels with RFE")
+    plt.show()
+    
+    print ranking
+        
+        
+elif TEST==4:
+    npath = "fasta/Bacillus_non_prom.fa"
+    ppath = "fasta/Bacillus_prom.fa"
+    data = SequenceNucsData(npath, ppath, k=3)
+    print data.getX()
